@@ -1,4 +1,4 @@
-#include <stdio.h>
+.#include <stdio.h>
 
 // cores e formato de texto
 #define ANSI_RESET            "\x1b[0m"  // desativa os efeitos anteriores
