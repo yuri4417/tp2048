@@ -1,3 +1,4 @@
+#include "cores.c"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,76 +6,36 @@
 #include <ctype.h>
 #ifdef _WIN32
 	#include <windows.h>
+#else 
+	#include <sys/ioctl.h>
+	#include <unistd.h>
 #endif
-#define ANSI_RESET            "\x1b[0m"  // desativa os efeitos anteriores
-#define ANSI_BOLD             "\x1b[1m"  // coloca o texto em negrito
-#define ANSI_COLOR_BLACK      "\x1b[30m"
-#define ANSI_COLOR_RED        "\x1b[31m"
-#define ANSI_COLOR_GREEN      "\x1b[32m"
-#define ANSI_COLOR_YELLOW     "\x1b[33m"
-#define ANSI_COLOR_BLUE       "\x1b[34m"
-#define ANSI_COLOR_MAGENTA    "\x1b[35m"
-#define ANSI_COLOR_CYAN       "\x1b[36m"
-#define ANSI_COLOR_WHITE      "\x1b[37m"
-#define ANSI_BG_COLOR_BLACK   "\x1b[40m"
-#define ANSI_BG_COLOR_RED     "\x1b[41m"
-#define ANSI_BG_COLOR_GREEN   "\x1b[42m"
-#define ANSI_BG_COLOR_YELLOW  "\x1b[43m"
-#define ANSI_BG_COLOR_BLUE    "\x1b[44m"
-#define ANSI_BG_COLOR_MAGENTA "\x1b[45m"
-#define ANSI_BG_COLOR_CYAN    "\x1b[46m"
-#define ANSI_BG_COLOR_WHITE   "\x1b[47m"
 
-// macros para facilitar o uso
-#define BOLD(string)       ANSI_BOLD             string ANSI_RESET
-#define BLACK(string)      ANSI_COLOR_BLACK      string ANSI_RESET
-#define BLUE(string)       ANSI_COLOR_BLUE       string ANSI_RESET
-#define RED(string)        ANSI_COLOR_RED        string ANSI_RESET
-#define GREEN(string)      ANSI_COLOR_GREEN      string ANSI_RESET
-#define YELLOW(string)     ANSI_COLOR_YELLOW     string ANSI_RESET
-#define BLUE(string)       ANSI_COLOR_BLUE       string ANSI_RESET
-#define MAGENTA(string)    ANSI_COLOR_MAGENTA    string ANSI_RESET
-#define CYAN(string)       ANSI_COLOR_CYAN       string ANSI_RESET
-#define WHITE(string)      ANSI_COLOR_WHITE      string ANSI_RESET
-#define BG_BLACK(string)   ANSI_BG_COLOR_BLACK   string ANSI_RESET
-#define BG_BLUE(string)    ANSI_BG_COLOR_BLUE    string ANSI_RESET
-#define BG_RED(string)     ANSI_BG_COLOR_RED     string ANSI_RESET
-#define BG_GREEN(string)   ANSI_BG_COLOR_GREEN   string ANSI_RESET
-#define BG_YELLOW(string)  ANSI_BG_COLOR_YELLOW  string ANSI_RESET
-#define BG_BLUE(string)    ANSI_BG_COLOR_BLUE    string ANSI_RESET
-#define BG_MAGENTA(string) ANSI_BG_COLOR_MAGENTA string ANSI_RESET
-#define BG_CYAN(string)    ANSI_BG_COLOR_CYAN    string ANSI_RESET
-#define BG_WHITE(string)   ANSI_BG_COLOR_WHITE   string ANSI_RESET
 
-// caracteres uteis para tabelas
-#define TAB_HOR "\u2501" // ━ (horizontal)
-#define TAB_VER "\u2503" // ┃ (vertical)
-#define TAB_TL  "\u250F" // ┏ (top-left)
-#define TAB_ML  "\u2523" // ┣ (middle-left)
-#define TAB_BL  "\u2517" // ┗ (bottom-left)
-#define TAB_TJ  "\u2533" // ┳ (top-join)
-#define TAB_MJ  "\u254B" // ╋ (middle-join)
-#define TAB_BJ  "\u253B" // ┻ (bottom-join)
-#define TAB_TR  "\u2513" // ┓ (top-right)
-#define TAB_MR  "\u252B" // ┫ (middle-right)
-#define TAB_BR  "\u251B" // ┛ (bottom-right)
 // ============================
 // 	STRUCTS
 // ============================
 typedef struct {
 	int valor;
 	int nao_guloso; //peça recém gerada não pode gerar outra na mesma rodada q foi criada
-} Tablepos;
+} Célula;
 typedef struct {
-	Tablepos **table;
+	Célula **table;
 	int tam;
-	int pts;
+	long int pts;
 	char nick[50];
+	int unsaved; // Jogo iniciado, mas não salvo ainda
 	int numUndo; //+1 a cada peça de 256 gerada
 	int numTroca; //+1 a cada peça de 512 gerada
-	Tablepos **table_bkp;
-	int pts_bkp;
+	Célula **table_bkp;
+	long int pts_bkp;
 } Tabuleiro;
+typedef struct {
+	int largura;
+	int altura;
+} Infos;
+
+
 
 // ============================
 // 	Funções
@@ -88,11 +49,24 @@ void novoJogo(Tabuleiro* jogo);
 void limpar_buffer();
 void delay_ms(int ms);
 void geradorRand(Tabuleiro* jogo);
+void clear();
+void terminalInfos(Infos* dim);
+void cprintf(char* string); //Imprime no centro de uma linha
+void mprintf(char* string); //Imprime no centro do terminal;
+void zeraGuloso(Tabuleiro* jogo);
+
+
+
+
 
 // Matrizes
-Tablepos **criaMatriz(int n); 
-void liberaMatriz(Tablepos **matriz, int n); 
-
+Célula **criaMatriz(int n); 
+void liberaMatriz(Célula** matriz, int n); 
+void moveCursor(int linha, int coluna);
+void moveEsquerda(Tabuleiro* jogo);
+void moveDireita(Tabuleiro* jogo);
+void moveCima(Tabuleiro* jogo);
+void moveBaixo(Tabuleiro* jogo);
 
 // ============================
 //	MAIN
@@ -100,22 +74,26 @@ void liberaMatriz(Tablepos **matriz, int n);
 int main () {
 	Tabuleiro jogo;
 	jogo.table = NULL;
+	jogo.unsaved = 1;
 	jogo.pts = 0;
 	jogo.numUndo = 0;
 	jogo.numTroca = 0;
 	srand(time(NULL));
+	clear();
 	mostraMenu(&jogo);
 	return 0;
 }
 
 
 
+
+
+
 //	Jogo
 void mostraMenu(Tabuleiro* jogo) {
-	char opt, frase[30];
-	do {
-		printf("\t---MENU - 2048 ---\n");
-		printf("Selecione uma opção\n");
+	char opt, frase[100];
+	do {	
+		cprintf("Bem-vindo!");
 		printf("N) Iniciar novo jogo\n");
 		printf("J) Continuar um jogo já existente\n");
 		printf("\nC) Carregar um jogo salvo\n");
@@ -124,17 +102,33 @@ void mostraMenu(Tabuleiro* jogo) {
 		printf("A) Instruções do jogo\n");
 		printf("\nR) Sair\n");
 		printf("\nO que deseja fazer? ");
-		fgets(frase, 30, stdin);
-		if (strlen(frase) == 2 && frase[1] == '\n')
+		fgets(frase, 100, stdin);
+		if (strlen(frase) == 2)
 			opt = toupper(frase[0]);
 		else
 			opt = '\0';
 		switch (opt) {
-			case 'N':
-					novoJogo(jogo);
+			case 'N': {
+					int start = 0;
+					if (!jogo->unsaved) 
+						start = 1;
+					else {
+						char temp[10];
+        				printf(BOLD(BG_YELLOW("AVISO: JOGO EM ANDAMENTO NÃO SALVO")) ". Deseja continuar mesmo assim?(S/N)\n->");
+       					fgets(temp, 10, stdin);
+        				if (tolower(temp[0]) == 's')
+           					 start = 1;
+   					}
+					if (start) {
+						printf(BOLD(GREEN("Iniciando novo jogo... Divirta-se!")) "\n");
+						delay_ms(850);
+						clear();
+						novoJogo(jogo);
+					}
+		}
 					break;
 			case 'J':
-
+		
 					break;
 			case 'C':
 		
@@ -157,12 +151,19 @@ void mostraMenu(Tabuleiro* jogo) {
 						temp[len-1] = '\0';
 					for (int i = 0; temp[i] != '\0'; i++)
 						temp[i] = tolower(temp[i]);
-					if (strcmp(temp, "sim") == 0)
-						exit(EXIT_SUCCESS);
-					else if (strcmp(temp, "não") == 0 || strcmp(temp, "nao") == 0)  { //tratar remoção de acentos
-						printf("Retornando ao Menu...\n");
+					if (strcmp(temp, "sim") == 0) {
+						if (!jogo->unsaved)
+							exit(EXIT_SUCCESS);
+						else {
+							printf("Jogo não salvo. Deseja sair mesmo assim?");
+						}
+					}
+
+					else if (strcmp(temp, "não") == 0 || strcmp(temp, "nao") == 0|| strcmp(temp, "nÃo") == 0)  { //tratar remoção de acentos
+						printf(BOLD(GREEN("Retornando ao Menu...")) "\n");
 						opt = '\0';
-						delay_ms(200);
+						delay_ms(250);
+						clear();
 					}
 					else {
 					 	printf(BOLD(RED("Opção Inválida. Tente novamente")) "\n");
@@ -171,31 +172,47 @@ void mostraMenu(Tabuleiro* jogo) {
 					break;
 			default: 
 					printf(BOLD(RED("Opção inválida! Escolha novamente.")) "\n");
-					delay_ms(450);
-					
+					delay_ms(850);
+					clear();
 		} 
-		} while (opt != 'R' && opt != 'r');
+	} while (opt != 'R' && opt != 'r');
 }
 void novoJogo(Tabuleiro* jogo) {
-	printf("Iniciando novo jogo\nEscolha a dificuldade do jogo:\n");
+	char resp[50];
 	printf("\t(4) Normal  (4x4) - 1 peça gerada por rodada   - 90%% de chance de ser 2 e 10%% de ser 4\n");
 	printf("\t(5) Difícil (5x5) - 1 peça gerada por rodada   - 85%% de chance de ser 2 e 15%% de ser 4\n");
 	printf("\t(6) Expert  (6x6) - 2 peças geradas por rodada - 80%% de chance de serem 2's e 20%% de serem 4's\n");
 	printf("Escolha o tamanho da tabela: ");
 	scanf("%d", &jogo->tam);
-	while (jogo->tam < 4 || jogo->tam > 6) { 
+	while (jogo->tam < 4 || jogo->tam > 6) {
 		printf("Valor inválido! Escolha um valor entre 4 e 6\n-> ");
 		scanf("%d", &jogo->tam);
-		limpar_buffer();
 	}
+	limpar_buffer();
+	//Criação e verificação das matrizes
 	jogo->table = criaMatriz(jogo->tam);
 	jogo->table_bkp = criaMatriz(jogo->tam);
 	if (jogo->table == NULL || jogo->table_bkp == NULL) {
 		printf(BOLD(RED("ERRO: Falha ao iniciar o jogo. Tente novamente.\n")));
-		exit(EXIT_FAILURE);
+		delay_ms(2000);
+		return;
 	}
 
+
+	do {
+
+
+		fgets(resp, 50, stdin);
+		int len = strlen(resp);
+		if (resp[len-1] == '\n')
+			resp[len-1] = '\0';
+
+	} while (strcmp(resp, "voltar") != 0);	
+
 }
+
+
+
 
 
 
@@ -224,7 +241,18 @@ void geradorRand(Tabuleiro* jogo) {
 		prob4 = 20;
 	}
 
-	int espacoLimpo[jogo->tam * jogo->tam][2]; // matriz p salvar [i][j] zerado
+	int **espacoLimpo = malloc(jogo->tam*jogo->tam*sizeof(int));
+	if (espacoLimpo == NULL) {
+		printf(BOLD(RED("ERRO NA VERIFICAÇÃO DE SEGURANÇA. Tente novamente")) "\n");
+		return;	
+	}
+	for (int i = 0; i < (jogo->tam*jogo->tam); i++) {
+		espacoLimpo[i] = malloc(2*sizeof(int));
+		if (espacoLimpo[i] == NULL) {
+			printf(BOLD(RED("ERRO NA VERIFICAÇÃO DE SEGURANÇA. Tente novamente")) "\n");
+			return;
+		}
+	}
 	int qtdVazias = 0;
 
 	for (int i = 0; i < jogo->tam; i++)
@@ -254,15 +282,73 @@ void geradorRand(Tabuleiro* jogo) {
 		espacoLimpo[temp][1] = espacoLimpo[qtdVazias - 1][1];
 		qtdVazias--;
 	}
+	for (int i = 0; i < jogo->tam*jogo->tam; i++)
+		free(espacoLimpo[i]);
+	free(espacoLimpo);
+}
+void clear() {
+#ifdef _WIN32
+	system("cls");
+#else
+	system("clear");
+#endif
+}
+void cprintf(char *string) {
+	struct winsize w;
+	int colunas;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
+    	colunas = w.ws_col;
+    }
+	int print = strlen(string);
+	int center = (colunas - print) / 2;
+	for (int i = 0; i < center; i++)
+		printf(" ");
+	printf("%s", string);
+	printf("\n");
+}
+void terminalInfos(Infos *dim) {
+    struct winsize w;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
+        dim->largura = w.ws_col;
+        dim->altura = w.ws_row;
+    }
+}
+void moveCursor(int linha, int coluna) {
+    printf("\x1b[%d;%dH", linha, coluna);
+}
+void mprintf(char* texto) {
+    Infos dim;
+    terminalInfos(&dim);
+
+    int tamanho_texto = strlen(texto);
+
+    int linha_inicio = dim.altura / 2;
+    int coluna_inicio = (dim.largura - tamanho_texto) / 2;
+
+    if (coluna_inicio < 1) coluna_inicio = 1;
+    if (linha_inicio < 1) linha_inicio = 1;
+
+    moveCursor(linha_inicio, coluna_inicio);
+
+    printf("%s\n", texto);
+}
+void zeraGuloso(Tabuleiro* jogo) {
+	for (int i = 0; i < jogo->tam; i++) {
+		for (int j = 0; j < jogo->tam; j++) {
+			jogo->table[i][j].nao_guloso = 0;
+		}
+	}
 }
 
+
+
 //	Matrizes
-Tablepos **criaMatriz(int n) {
-	Tablepos **matriz;
-	matriz = malloc(n*sizeof(Tablepos*));
+Célula **criaMatriz(int n) {
+	Célula **matriz;
+	matriz = malloc(n*sizeof(Célula*));
 	if (matriz == NULL) return NULL;
 	for (int i = 0; i < n; i++) {
-		matriz[i] = malloc(n*sizeof(Tablepos));
+		matriz[i] = malloc(n*sizeof(Célula));
 		if (matriz[i] == NULL) {
 			for (int z = 0; z < i; z++) {
 				free(matriz[z]);
@@ -277,19 +363,203 @@ Tablepos **criaMatriz(int n) {
 	}
 	return matriz;
 }
-void liberaMatriz(Tablepos **matriz, int n) {
+void liberaMatriz(Célula** matriz, int n) {
 	for (int i = 0; i < n; i++)
 		free(matriz[i]);
 	free(matriz);
 }
+void moveEsquerda(Tabuleiro* jogo) {
+	zeraGuloso(jogo);
+	int espacovazio;
 
+	for (int i = 0; i < jogo->tam; i++) {
+		
+		// COPIAR NÚMEROS PRA MÁXIMA ESQUERDA ==========================================================================================
+		espacovazio = 0;
+		for (int j = 0; j < jogo->tam; j++) {
+			if (jogo->table[i][j].valor != 0) {
+				jogo->table[i][espacovazio] = jogo->table[i][j];
+				espacovazio++;
+			}
+		}
+		// LIMPAR NÚMEROS JÁ COPIADOS
+		for (int l = espacovazio; l < jogo->tam; l++) {
+			jogo->table[i][l].valor = 0;
+			jogo->table[i][l].nao_guloso = 0;
+		}
 
+		// FUNDIR NÚMEROS ============================================================================================================== 
+		for (int f = 0; f < jogo->tam - 1; f++) {
+			if (jogo->table[i][f].valor != 0 && jogo->table[i][f].valor == jogo->table[i][f+1].valor &&
+				jogo->table[i][f].nao_guloso == 0 && jogo->table[i][f+1].nao_guloso == 0) {
 
+				jogo->table[i][f].valor *= 2;
+				jogo->pts += jogo->table[i][f].valor;
 
+				jogo->table[i][f+1].valor = 0;
+				jogo->table[i][f].nao_guloso = 1;
+			}
+		}
 
+		// COPIA E LIMPA NOVAMENTE ======================================================================================================
+		espacovazio = 0;
+		for (int j = 0; j < jogo->tam; j++) {
+			if (jogo->table[i][j].valor != 0) {
+				jogo->table[i][espacovazio] = jogo->table[i][j];
+				espacovazio++;
+			}
+		}
+		for (int l = espacovazio; l < jogo->tam; l++) {
+			jogo->table[i][l].valor = 0;
+			jogo->table[i][l].nao_guloso = 0;
+		}
+	}
+}
+void moveDireita(Tabuleiro* jogo) {
+	zeraGuloso(jogo);
+	int espacovazio;
 
+	for (int i = 0; i < jogo->tam; i++) {
 
+		// COPIAR NÚMEROS PRA MÁXIMA DIREITA ==========================================================================================
+		espacovazio = jogo->tam - 1;
+		for (int j = jogo->tam - 1; j >= 0; j--) {
+			if (jogo->table[i][j].valor != 0) {
+				jogo->table[i][espacovazio] = jogo->table[i][j];
+				espacovazio--;
+			}
+		}
+		// LIMPA NÚMEROS COPIADOS ====================================================================================================
+		for (int l = espacovazio; l >= 0; l--) {
+			jogo->table[i][l].valor = 0;
+			jogo->table[i][l].nao_guloso = 0;
+		}
 
+		// FUNDIR NÚMEROS ============================================================================================================
+		for (int f = jogo->tam - 1; f >= 1; f--) {
+			if (jogo->table[i][f].valor != 0 && jogo->table[i][f].valor == jogo->table[i][f-1].valor && 
+				jogo->table[i][f].nao_guloso == 0 && jogo->table[i][f-1].nao_guloso == 0) {
 
+				jogo->table[i][f].valor *= 2;
+				jogo->pts += jogo->table[i][f].valor;
 
+				jogo->table[i][f].nao_guloso = 1;
+				jogo->table[i][f-1].valor = 0;
+			}
+		}
 
+		// DESLIZA E LIMPA NOVAMENTE ==================================================================================================
+		espacovazio = jogo->tam - 1;
+		for (int j = jogo->tam - 1; j >= 0; j--) {
+			if (jogo->table[i][j].valor != 0) {
+				jogo->table[i][espacovazio] = jogo->table[i][j];
+				espacovazio--;
+			}
+		}
+		for (int l = espacovazio; l >= 0; l--) {
+			jogo->table[i][l].valor = 0;
+			jogo->table[i][l].nao_guloso = 0;
+		}
+	}
+}
+void moveCima(Tabuleiro* jogo) {
+	zeraGuloso(jogo);
+	int espacovazio;
+
+	
+	for (int i = 0; i < jogo->tam; i++) { // i = colunas
+		
+		// COPIA E PUXA PEÇAS PRA CIMA ================================================================================================
+		espacovazio = 0; 
+		for (int j = 0; j < jogo->tam; j++) {
+			if (jogo->table[j][i].valor != 0) {
+				jogo->table[espacovazio][i] = jogo->table[j][i];
+				espacovazio++;
+			}
+		}
+		// LIMPA PEÇAS DO FUNDO QUE FORAM COPIADAS ====================================================================================
+		for (int l = espacovazio; l < jogo->tam; l++) {
+			jogo->table[l][i].valor = 0;
+			jogo->table[l][i].nao_guloso = 0;
+		}
+
+		// FUSÃO DOS NÚMEROS ==========================================================================================================
+		for (int f = 0; f < jogo->tam - 1; f++) {
+			if (jogo->table[f][i].valor != 0 && jogo->table[f][i].valor == jogo->table[f+1][i].valor &&
+				jogo->table[f][i].nao_guloso == 0 && jogo->table[f+1][i].nao_guloso == 0) {
+
+				jogo->table[f][i].valor *= 2;
+				jogo->pts += jogo->table[f][i].valor;
+
+				jogo->table[f][i].nao_guloso = 1;
+				jogo->table[f+1][i].valor = 0;
+			}
+		}
+
+		// DESLIZA E LIMPA ============================================================================================================
+		espacovazio = 0;
+		for (int j = 0; j < jogo->tam; j++) {
+			if (jogo->table[j][i].valor != 0) {
+				jogo->table[espacovazio][i] = jogo->table[j][i];
+				espacovazio++;
+			}
+		}
+		for (int l = espacovazio; l < jogo->tam; l++) {
+			jogo->table[l][i].valor = 0;
+			jogo->table[l][i].nao_guloso = 0;
+		}
+	}
+}
+void moveBaixo(Tabuleiro* jogo) {
+	zeraGuloso(jogo);
+	int espacovazio;
+
+	for (int i = 0; i < jogo->tam; i++) {
+	
+		espacovazio = jogo->tam - 1; 
+		for (int j = jogo->tam - 1; j >= 0; j--) {
+
+		// COPIA VALORES PRO FUNDO ==================================================================================================
+			if (jogo->table[j][i].valor != 0) {
+				jogo->table[espacovazio][i] = jogo->table[j][i];
+				espacovazio--;
+			}
+		}
+
+		// LIMPA CASAS COPIADAS =====================================================================================================
+		for (int l = espacovazio; l >= 0; l--) {
+			jogo->table[l][i].valor = 0;
+			jogo->table[l][i].nao_guloso = 0;
+		}
+
+		// FUSÃO ====================================================================================================================
+		for (int f = jogo->tam - 1; f > 0; f--) {
+			if (jogo->table[f][i].valor != 0 && jogo->table[f][i].valor == jogo->table[f-1][i].valor &&
+				jogo->table[f][i].nao_guloso == 0 && jogo->table[f-1][i].nao_guloso == 0) {
+
+				jogo->table[f][i].valor *= 2;
+				jogo->pts += jogo->table[f][i].valor;
+
+				jogo->table[f][i].nao_guloso = 1;
+				jogo->table[f-1][i].valor = 0;
+			}
+		}
+
+		// DESLIZA E LIMPA ==========================================================================================================
+		espacovazio = jogo->tam - 1; 
+		for (int j = jogo->tam - 1; j >= 0; j--) {
+
+			if (jogo->table[j][i].valor != 0) {
+				jogo->table[espacovazio][i] = jogo->table[j][i];
+				espacovazio--;
+			}
+		}
+		for (int l = espacovazio; l >= 0; l--) {
+			jogo->table[l][i].valor = 0;
+			jogo->table[l][i].nao_guloso = 0;
+		}
+	}
+}
+void copiaMatriz(Célula** table, Célula table_bkp) {
+	
+}
