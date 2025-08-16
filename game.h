@@ -21,4 +21,8 @@ void fazBackup(Tabuleiro* jogo);
 void desfazMovimento(Tabuleiro* jogo);
 void imprimeTabela(Tabuleiro* jogo);
 int mudanca(Tabuleiro* jogo);
+int verificaVitória(Tabuleiro* jogo);
+int verificaDerrota(Tabuleiro* jogo);
+int trataVitória(Tabuleiro* jogo);
+int trataDerrota(Tabuleiro* jogo);
 #endif

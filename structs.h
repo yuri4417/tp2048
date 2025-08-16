@@ -1,5 +1,5 @@
-#ifndef __ESTRUTURAS_H__
-#define __ESTRUTURAS_H__
+#ifndef __STRUCTS_H__
+#define __STRUCTS_H__
 
 // ============================
 // 	STRUCTS
@@ -13,9 +13,14 @@ typedef struct {
 	int tam;
 	long int pts;
 	char nick[50];
+	int verificado;
+
+
 	int unsaved; // Jogo iniciado, mas não salvo ainda
 	int numUndo; //+1 a cada peça de 256 gerada
 	int numTroca; //+1 a cada peça de 512 gerada
+
+
 	Célula **table_bkp;
 	long int pts_bkp;
 } Tabuleiro;

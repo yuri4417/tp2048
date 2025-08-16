@@ -11,5 +11,8 @@ void clear();
 void cprintf(char* string); //Imprime no centro de uma linha
 void zeraGuloso(Tabuleiro* jogo);
 char converteMinuscula(char letra);
+int stringReal(char* str);
+int perguntaSN(char* str);
+
 
 #endif

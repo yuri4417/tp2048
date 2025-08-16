@@ -1,5 +1,5 @@
 #include "utils.h"
-
+#include "cores.h"
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +56,7 @@ void cprintf( char* string) {
     }
 #endif
 
-    int tamanho_texto = strlen(string);
+    int tamanho_texto = stringReal(string);
     int espacamento = (largura_terminal - tamanho_texto) / 2;
 
     if (espacamento < 0) {
@@ -67,7 +67,7 @@ void cprintf( char* string) {
         printf(" ");
     }
 
-    printf("%s\n", string);
+    printf("%s", string);
 }
 void zeraGuloso(Tabuleiro* jogo) {
 	for (int i = 0; i < jogo->tam; i++) {
@@ -80,4 +80,38 @@ char converteMinuscula(char letra) {
 	if (letra >= 65 && letra <= 90)
 		letra += 32; 	
 	return letra;
+}
+int stringReal(char* str) {
+    int len = 0;
+    int i = 0;
+    while (str[i] != '\0') {
+        if (str[i] == '\x1b') {
+            while (str[i] != '\0' && str[i] != 'm') {
+                i++;
+            }
+            if (str[i] != '\0') {
+                i++;
+            }
+        } else {
+            len++;
+            i++;
+        }
+    }
+    return len;
+}
+int perguntaSN(char* str) {
+    char resp[16];
+    while (1) {
+        printf("%s", str);
+        if (!lerEntrada(resp, 16)) return 0; // EOF == 'n'
+
+        if (strlen(resp) == 1) {
+            char c = converteMinuscula(resp[0]);
+            if (c == 's') return 1;
+            if (c == 'n') return 0;
+        }
+
+        printf(BOLD(RED("Opção Inválida! Tente novamente (S/N)\n")));
+        delay_ms(500);
+    }
 }
