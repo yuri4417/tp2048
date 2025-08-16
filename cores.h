@@ -1,5 +1,5 @@
-#ifndef CORES_H
-#define CORES_H
+#ifndef __CORES_H__
+#define __CORES_H__
 
 	// cores e formato de texto
 	#define ANSI_RESET            "\x1b[0m"  // desativa os efeitos anteriores
