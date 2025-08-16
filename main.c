@@ -52,8 +52,10 @@ void geradorRand(Tabuleiro* jogo);
 void clear();
 void terminalInfos(Infos* dim);
 void cprintf(char* string); //Imprime no centro de uma linha
-void mprintf(char* string); //Imprime no centro do terminal;
 void zeraGuloso(Tabuleiro* jogo);
+void processaComando(Tabuleiro* jogo, char* opt);
+char converteMinuscula(char letra);
+void sair(Tabuleiro* jogo, char* opt);
 
 
 
@@ -67,6 +69,11 @@ void moveEsquerda(Tabuleiro* jogo);
 void moveDireita(Tabuleiro* jogo);
 void moveCima(Tabuleiro* jogo);
 void moveBaixo(Tabuleiro* jogo);
+void fazBackup(Tabuleiro* jogo);
+void desfazMovimento(Tabuleiro* jogo);
+void imprimeTabela(Tabuleiro* jogo);
+
+
 
 // ============================
 //	MAIN
@@ -74,7 +81,8 @@ void moveBaixo(Tabuleiro* jogo);
 int main () {
 	Tabuleiro jogo;
 	jogo.table = NULL;
-	jogo.unsaved = 1;
+	jogo.table_bkp = NULL;
+	jogo.unsaved = 0;
 	jogo.pts = 0;
 	jogo.numUndo = 0;
 	jogo.numTroca = 0;
@@ -101,14 +109,22 @@ void mostraMenu(Tabuleiro* jogo) {
 		printf("\nM) Mostrar TOP 10 pontuações\n");
 		printf("A) Instruções do jogo\n");
 		printf("\nR) Sair\n");
-		printf("\nO que deseja fazer? ");
-		fgets(frase, 100, stdin);
-		if (strlen(frase) == 2)
-			opt = toupper(frase[0]);
+		printf("\nO que deseja fazer? "); 
+		if (fgets(frase, 100, stdin) != NULL) { // Fazer essa validação para outros fgets's
+		if (strchr(frase, '\n') == NULL)
+			limpar_buffer();
+
+		frase[strcspn(frase, "\n")] = '\0';
+
+		if (strlen(frase) == 1)
+			opt = converteMinuscula(frase[0]);
 		else
 			opt = '\0';
+		}
+		else
+			break;
 		switch (opt) {
-			case 'N': {
+			case 'n': {
 					int start = 0;
 					if (!jogo->unsaved) 
 						start = 1;
@@ -116,7 +132,7 @@ void mostraMenu(Tabuleiro* jogo) {
 						char temp[10];
         				printf(BOLD(BG_YELLOW("AVISO: JOGO EM ANDAMENTO NÃO SALVO")) ". Deseja continuar mesmo assim?(S/N)\n->");
        					fgets(temp, 10, stdin);
-        				if (tolower(temp[0]) == 's')
+        				if (converteMinuscula(temp[0]) == 's')
            					 start = 1;
    					}
 					if (start) {
@@ -127,55 +143,30 @@ void mostraMenu(Tabuleiro* jogo) {
 					}
 		}
 					break;
-			case 'J':
+			case 'j':
 		
 					break;
-			case 'C':
+			case 'c':
 		
 					break;
-			case 'S':
+			case 's':
 
 					break;
-			case 'M':
+			case 'm':
 
 					break;
-			case 'A':
+			case 'a':
 
 					break;
-			case 'R':
-					char temp[30];
-					printf("Deseja realmente encerrar o jogo? (Sim/Não)\n->");
-					fgets(temp, 30, stdin);
-					int len = strlen(temp);
-					if (temp[len-1] == '\n') 
-						temp[len-1] = '\0';
-					for (int i = 0; temp[i] != '\0'; i++)
-						temp[i] = tolower(temp[i]);
-					if (strcmp(temp, "sim") == 0) {
-						if (!jogo->unsaved)
-							exit(EXIT_SUCCESS);
-						else {
-							printf("Jogo não salvo. Deseja sair mesmo assim?");
-						}
-					}
-
-					else if (strcmp(temp, "não") == 0 || strcmp(temp, "nao") == 0|| strcmp(temp, "nÃo") == 0)  { //tratar remoção de acentos
-						printf(BOLD(GREEN("Retornando ao Menu...")) "\n");
-						opt = '\0';
-						delay_ms(250);
-						clear();
-					}
-					else {
-					 	printf(BOLD(RED("Opção Inválida. Tente novamente")) "\n");
-					 	opt = '\0';
-					}
+			case 'r':
+					sair(jogo, &opt);
 					break;
 			default: 
 					printf(BOLD(RED("Opção inválida! Escolha novamente.")) "\n");
 					delay_ms(850);
 					clear();
 		} 
-	} while (opt != 'R' && opt != 'r');
+	} while (opt != 'r');
 }
 void novoJogo(Tabuleiro* jogo) {
 	char resp[50];
@@ -189,6 +180,11 @@ void novoJogo(Tabuleiro* jogo) {
 		scanf("%d", &jogo->tam);
 	}
 	limpar_buffer();
+	printf("Digite seu nickname: ");
+	fgets(jogo->nick, 50, stdin);
+	int len = strlen(jogo->nick);
+	if (jogo->nick[len-1] == '\n')
+		jogo->nick[len-1] = '\0';
 	//Criação e verificação das matrizes
 	jogo->table = criaMatriz(jogo->tam);
 	jogo->table_bkp = criaMatriz(jogo->tam);
@@ -197,20 +193,76 @@ void novoJogo(Tabuleiro* jogo) {
 		delay_ms(2000);
 		return;
 	}
-
-
+	if (jogo->tam == 6)
+		geradorRand(jogo);
+	else {
+		geradorRand(jogo);
+		geradorRand(jogo);
+	}
+	jogo->unsaved = 1;
+	delay_ms(450);
+	clear();
 	do {
-
-
+		imprimeTabela(jogo);
 		fgets(resp, 50, stdin);
 		int len = strlen(resp);
 		if (resp[len-1] == '\n')
 			resp[len-1] = '\0';
+		if (strcmp(resp, "voltar") != 0)
+			processaComando(jogo, resp);
 
 	} while (strcmp(resp, "voltar") != 0);	
+	clear();
 
 }
+void processaComando(Tabuleiro* jogo, char* opt) {
+	if (strlen(opt) == 1)
+		switch (opt[0]) {
+	
+			case 'a':
+				fazBackup(jogo);
+				moveEsquerda(jogo);
+				break;
+			case 'd':
+				fazBackup(jogo);
+				moveDireita(jogo);
+				break;
+			case 's':
+				fazBackup(jogo);
+				moveBaixo(jogo);
+				break;
+			case 'w':
+				fazBackup(jogo);
+				moveCima(jogo);
+				break;
+			case 'u':
+				if (jogo->numUndo > 0) {
+					desfazMovimento(jogo);
+					jogo->numUndo--;
+				}
+				else
+					printf("Você não possui mais chances de voltar! Obtenha mais formando peças de 256\n");
+				break;
+			case 't':
+				if (jogo->numTroca > 0) {
 
+
+
+
+
+				}
+				else
+					printf("Você não possui mais fichas de troca! Obtenha mais formando peças de 512\n");
+			default:
+				printf("Opção inválida! Digite novamente\n");
+		}
+	else {
+		printf(BOLD(RED("Comando inválido! Tente novamente"))"\n");
+		delay_ms(500);
+		clear();
+	}
+
+}
 
 
 
@@ -241,7 +293,7 @@ void geradorRand(Tabuleiro* jogo) {
 		prob4 = 20;
 	}
 
-	int **espacoLimpo = malloc(jogo->tam*jogo->tam*sizeof(int));
+	int **espacoLimpo = malloc(jogo->tam*jogo->tam*sizeof(int*));
 	if (espacoLimpo == NULL) {
 		printf(BOLD(RED("ERRO NA VERIFICAÇÃO DE SEGURANÇA. Tente novamente")) "\n");
 		return;	
@@ -337,6 +389,40 @@ void zeraGuloso(Tabuleiro* jogo) {
 		for (int j = 0; j < jogo->tam; j++) {
 			jogo->table[i][j].nao_guloso = 0;
 		}
+	}
+}
+char converteMinuscula(char letra) {
+	if (letra >= 65 && letra <= 90)
+		letra += 32; 	
+	return letra;
+}
+void sair(Tabuleiro *jogo, char* opt) {
+	char temp[30];
+	printf("Deseja realmente encerrar o jogo? (S/N)\n->");
+	fgets(temp, 30, stdin);
+	int len = strlen(temp);
+	if (temp[len-1] == '\n') 
+		temp[len-1] = '\0';
+	temp[0] = converteMinuscula(temp[0]);
+	if (len == 2 && temp[0] == 's') {
+		if (!jogo->unsaved)
+			return;
+		else {
+			printf("Jogo não salvo. Deseja sair mesmo assim?");
+		}
+	}
+
+	else if (len == 2 && temp[0] == 'n')  { 
+		printf(BOLD(GREEN("Retornando ao Menu...")) "\n");
+		*opt = '\0';
+		delay_ms(350);
+		clear();
+	}
+	else {
+	 	printf(BOLD(RED("Opção Inválida. Tente novamente")) "\n");
+	 	*opt = '\0';
+	 	delay_ms(450);
+	 	clear();
 	}
 }
 
@@ -560,6 +646,40 @@ void moveBaixo(Tabuleiro* jogo) {
 		}
 	}
 }
-void copiaMatriz(Célula** table, Célula table_bkp) {
-	
+void fazBackup(Tabuleiro* jogo) {
+	for (int i = 0; i < jogo->tam; i++)
+		for (int j = 0; j < jogo->tam; j++)
+			jogo->table_bkp[i][j] = jogo->table[i][j];
+	jogo->pts_bkp = jogo->pts;
+}
+void desfazMovimento(Tabuleiro* jogo) {
+	Célula **temp = NULL;
+	temp = criaMatriz(jogo->tam);
+	long int temp_pts = jogo->pts;
+	if (temp == NULL) {
+		printf(BOLD(RED("ERRO DE FUNCIONAMENTO DO JOGO. TENTE NOVAMENTE")) "\n");
+		return;
+	}
+	for (int i = 0; i < jogo->tam; i++) // Matriz temporária
+		for (int j = 0; j < jogo->tam; j++)
+			temp[i][j] = jogo->table[i][j];
+
+	for (int i = 0; i < jogo->tam; i++)
+		for (int j = 0; j < jogo->tam; j++)
+			jogo->table[i][j] = jogo->table_bkp[i][j];
+
+	for (int i = 0; i < jogo->tam; i++)
+		for (int j = 0; j < jogo->tam; j++)
+			jogo->table_bkp[i][j] = temp[i][j];
+
+	jogo->pts = jogo->pts_bkp;
+	jogo->pts_bkp = temp_pts;
+	liberaMatriz(temp, jogo->tam);	
+}
+void imprimeTabela(Tabuleiro* jogo) {
+	for (int i = 0; i < jogo->tam; i++) {
+		for (int j = 0; j < jogo->tam; j++)
+			printf("%d ", jogo->table[i][j].valor);
+	printf("\n");
+	}
 }
