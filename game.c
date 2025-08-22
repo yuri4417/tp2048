@@ -14,21 +14,21 @@ void mostraMenu(Tabuleiro* jogo) {
 	char frase[10];
 	do {
 		clear();
-		cprintf(BOLD(CYAN("Bem-vindo!\n\n")));
+		printf(BOLD(CYAN("\t\t\tBem-vindo!\n\n")));
 		for (int i = 0; i < 3; i++)
 			printf("\n");
-		cprintf(BOLD(GREEN("(N) "))BOLD(WHITE("Iniciar Novo Jogo\n")));
-		cprintf(BOLD(GREEN("(J) "))BOLD(WHITE("Continuar um jogo atual\n\n")));
-		cprintf(BOLD(YELLOW("(C) "))BOLD(WHITE("Carregar um Jogo Salvo\n")));
-		cprintf(BOLD(YELLOW("(S) "))BOLD(WHITE("Salvar o Jogo Atual\n\n")));
-		cprintf(BOLD(BLUE("(M) "))BOLD(WHITE("Mostrar TOP 10 pontuações\n")));
-		cprintf(BOLD(BLUE("(A) "))BOLD(WHITE("Como jogar? \n\n")));
-		cprintf(BOLD(RED("(R) "))BOLD(WHITE("Sair \n\n")));
-		cprintf("O que deseja fazer?\n");
-		cprintf("-> "); 
+		printf(BOLD(GREEN("(N) "))BOLD(WHITE("Iniciar Novo Jogo\n")));
+		printf(BOLD(GREEN("(J) "))BOLD(WHITE("Continuar um jogo atual\n\n")));
+		printf(BOLD(YELLOW("(C) "))BOLD(WHITE("Carregar um Jogo Salvo\n")));
+		printf(BOLD(YELLOW("(S) "))BOLD(WHITE("Salvar o Jogo Atual\n\n")));
+		printf(BOLD(BLUE("(M) "))BOLD(WHITE("Mostrar TOP 10 pontuações\n")));
+		printf(BOLD(BLUE("(A) "))BOLD(WHITE("Como jogar? \n\n")));
+		printf(BOLD(RED("(R) "))BOLD(WHITE("Sair \n\n")));
+		printf("O que deseja fazer?\n");
+		printf("-> "); 
 		if (!lerEntrada(frase, 10)) {
-			opt = 'r';
-			continue;
+			abortar(jogo);
+			break;
 		}
 		if (strlen(frase) == 1)
 			opt = converteMinuscula(frase[0]);
@@ -56,28 +56,42 @@ void mostraMenu(Tabuleiro* jogo) {
 			}
 					break;
 			case 'j':
-
+					if (jogo->table != NULL)
+						gameLoop(jogo);
+					else {
+						printf(BOLD(RED("ERRO: Nenhum jogo em andamento.")" Carregue um novo jogo ou inicie uma nova partida\n"));
+						delay_ms(850);
+					}
 					break;
 			case 'c':
-		
+					if (!carregaJogo(jogo)) {
+						printf("Erro ao carregar jogo, tente novamente ou inicie uma nova partida\n");
+						delay_ms(2500);
+					}
+					else {
+						printf("Jogo carregado! Selecione a opção \"J\" no menu para continuar com o jogo\n");
+						opt = 'j';
+						delay_ms(2500);
+					}
 					break;
 			case 's':
-
-					break;
+					salvaJogo(jogo);	
+					break; 
 			case 'm':
-
+					imprimeTabela(jogo);
+					delay_ms(2000);
 					break;
 			case 'a':
 
 					break;
 			case 'r': {
-					if (perguntaSN("Deseja realmente sair? (S/N)\n-> ")) {
+					if (perguntaSN(BOLD(RED("Deseja realmente sair? ")"(" BOLD(RED("S")) "/" BOLD(GREEN("N")))")\n->" )) {
 						printf(BOLD(RED("Saindo...\n")));
 						delay_ms(650);
 						opt = 'r';
 					}
 					else {
-						printf(BOLD(GREEN("Retornando ao menu\n")));
+						printf(BOLD(GREEN("Retornando ao menu...\n")));
 						opt = '\0';
 						delay_ms(600);
 					}
@@ -96,11 +110,11 @@ void novoJogo(Tabuleiro* jogo) {
 		liberaMatriz(jogo->table_bkp, jogo->tam);
 	}
 	clear();
-	cprintf("Dificuldades disponíveis:\n");
-	cprintf("(4) Normal  (4x4) \n");
-	cprintf("(5) Difícil (5x5) \n");
-	cprintf("(6) Expert  (6x6) \n");
-	cprintf("Escolha o tamanho do jogo: ");
+	printf("===== Dificuldades disponíveis =====\n");
+	printf(CYAN("\t(4) ")BOLD(GREEN("Normal"))"  (4x4) \n");
+	printf(CYAN("\t(5) ")BOLD(YELLOW("Difícil"))"  (5x5) \n");
+	printf(CYAN("\t(6) ")BOLD(RED("Expert"))"  (6x6) \n");
+	printf("Escolha o tamanho do jogo: ");
 	int tam = 0;
 	while (tam == 0) {
 		if (lerEntrada(resp, 50) && strlen(resp) == 1)
@@ -112,7 +126,10 @@ void novoJogo(Tabuleiro* jogo) {
 	}
 	jogo->tam = tam;
 	printf("Digite seu nickname: ");
-	lerEntrada(jogo->nick, 50);
+	fgets(jogo->nick, 50, stdin);
+	if (strchr(jogo->nick, '\n') == NULL) // Limpa se digitar mais que a string
+        limpar_buffer();
+    jogo->nick[strcspn(jogo->nick, "\n")] = '\0';
 
 	//Criação e verificação das matrizes
 	jogo->table = criaMatriz(jogo->tam);
@@ -122,6 +139,7 @@ void novoJogo(Tabuleiro* jogo) {
 		delay_ms(2000);
 		return;
 	}
+	//Flags e fichas
 	jogo->verificado = 0;
 	jogo->unsaved = 0;
 	jogo->pts = 0;
@@ -135,32 +153,7 @@ void novoJogo(Tabuleiro* jogo) {
 		geradorRand(jogo);
 		geradorRand(jogo);
 	}
-
-
-
-	do {
-		clear();
-		imprimeTabela(jogo);
-		printf("\nComando: Movimento (W, A, S ou D), Desfazer Movimento (U), Trocar peças (T) ou retornar ao menu (voltar):\n-> ");
-		if (!lerEntrada(resp, 50)) 
-			break;
-		for (int i = 0; resp[i] != '\0'; i++)
-			resp[i] = converteMinuscula(resp[i]);
-
-		if (strcmp(resp, "voltar") == 0) 
-			break;
-
-		processaComando(jogo, resp);
-
-		if (!jogo->verificado && verificaVitória(jogo)) {
-			if (!trataVitória(jogo))
-				break;
-		}
-		else if (verificaDerrota(jogo)) {
-			if (!trataDerrota(jogo))
-				break;
-		}
-	} while (1);
+	gameLoop(jogo);
 }
 void geradorRand(Tabuleiro* jogo) {
 	int toAdd = 1; // qtd de peças para serem geradas
@@ -234,12 +227,13 @@ void processaComando(Tabuleiro* jogo, char* opt) {
 
 	char cmd = converteMinuscula(opt[0]);
 
+	int len = strlen(opt);
 	switch (cmd) {
 		case 'a':
 		case 'd':
 		case 's':
 		case 'w':
-			if (strlen(opt) == 1) {
+			if (len == 1) {
 				fazBackup(jogo);
 				if (cmd == 'a') moveEsquerda(jogo);
 				if (cmd == 'd') moveDireita(jogo);
@@ -248,28 +242,32 @@ void processaComando(Tabuleiro* jogo, char* opt) {
 				
 				if (mudanca(jogo)) {
 					tabuleiro_mudou = 1;
-				} else {
+				}
+				else {
 					printf("Movimento inválido! O Jogo continua igual\n");
 					delay_ms(800);
 				}
-			} else {
+			} 
+			else {
 				printf(BOLD(RED("Comando inválido! Tente novamente\n")));
 				delay_ms(500);
 			}
 			break;
 
 		case 'u':
-			if (strlen(opt) == 1) {
+			if (len == 1) {
 				if (jogo->numUndo > 0) {
 					desfazMovimento(jogo);
 					jogo->numUndo--;
 					printf(BOLD(GREEN("Jogada desfeita!\n")));
 					delay_ms(800);
-				} else {
+				}
+				else {
 					printf("Você não possui mais chances de voltar! Obtenha formando peças de 256\n");
 					delay_ms(800);
 				}
-			} else {
+			} 
+			else {
 				printf(BOLD(RED("Comando inválido! Tente novamente\n")));
 				delay_ms(500);
 			}
@@ -277,8 +275,8 @@ void processaComando(Tabuleiro* jogo, char* opt) {
 
 		case 't': {
 			
-			break;
 		}	
+			break;
 		default:
 			printf("Opção inválida! Digite novamente\n");
 			delay_ms(850);
@@ -290,6 +288,32 @@ void processaComando(Tabuleiro* jogo, char* opt) {
 		jogo->unsaved = 1;
 	}
 }
+void gameLoop(Tabuleiro* jogo) {
+	char resp[10];
+	do {
+		clear();
+		imprimeTabela(jogo);
+		scoreRodada(jogo);
+		printf("\nComando: Movimento (W, A, S ou D), Desfazer Movimento (U), Trocar peças (T) ou retornar ao menu (voltar):\n-> ");
+		if (!lerEntrada(resp, 50)) 
+			break;
+
+		if (strcmp(resp, "voltar") == 0) 
+			break;
+
+		processaComando(jogo, resp);
+
+		if (!jogo->verificado && verificaVitória(jogo)) {
+			if (!trataVitória(jogo))
+				break;
+		}
+		else if (verificaDerrota(jogo)) {
+			if (!trataDerrota(jogo))
+				break;
+		}
+	} while (1);
+}
+
 
 //	Matrizes
 Célula **criaMatriz(int n) {
@@ -323,7 +347,7 @@ void moveEsquerda(Tabuleiro* jogo) {
 
 	for (int i = 0; i < jogo->tam; i++) {
 		
-		// COPIAR NÚMEROS PRA MÁXIMA ESQUERDA ==========================================================================================
+		// COPIA NÚMEROS PRA MÁXIMA ESQUERDA ==========================================================================================
 		espacovazio = 0;
 		for (int j = 0; j < jogo->tam; j++) {
 			if (jogo->table[i][j].valor != 0) {
@@ -343,10 +367,20 @@ void moveEsquerda(Tabuleiro* jogo) {
 				jogo->table[i][f].nao_guloso == 0 && jogo->table[i][f+1].nao_guloso == 0) {
 
 				jogo->table[i][f].valor *= 2;
+				jogo->table[i][f].nao_guloso = 1;
+				if (jogo->table[i][f].valor == 256) {
+					jogo->numUndo++;
+					printf(BOLD(GREEN("Ficha de Desfazer Jogada obtida!\n")));
+				}
+				if (jogo->table[i][f].valor == 512) {
+					jogo->numTroca++;
+					printf(BOLD(GREEN("Ficha de Trocar peças obtida!\n")));
+					delay_ms(800);
+				}
 				jogo->pts += jogo->table[i][f].valor;
 
 				jogo->table[i][f+1].valor = 0;
-				jogo->table[i][f].nao_guloso = 1;
+		
 			}
 		}
 
@@ -390,9 +424,18 @@ void moveDireita(Tabuleiro* jogo) {
 				jogo->table[i][f].nao_guloso == 0 && jogo->table[i][f-1].nao_guloso == 0) {
 
 				jogo->table[i][f].valor *= 2;
-				jogo->pts += jogo->table[i][f].valor;
-
 				jogo->table[i][f].nao_guloso = 1;
+				jogo->pts += jogo->table[i][f].valor;
+				if (jogo->table[i][f].valor == 256) {
+					jogo->numUndo++;
+					printf(BOLD(GREEN("Ficha de Desfazer Jogada obtida!\n")));
+				}
+				if (jogo->table[i][f].valor == 512) {
+					jogo->numTroca++;
+					printf(BOLD(GREEN("Ficha de Trocar Peças obtida!\n")));
+					delay_ms(800);
+				}
+				
 				jogo->table[i][f-1].valor = 0;
 			}
 		}
@@ -416,7 +459,7 @@ void moveCima(Tabuleiro* jogo) {
 	int espacovazio;
 
 	
-	for (int i = 0; i < jogo->tam; i++) { // i = colunas
+	for (int i = 0; i < jogo->tam; i++) { //colunas
 		
 		// COPIA E PUXA PEÇAS PRA CIMA ================================================================================================
 		espacovazio = 0; 
@@ -437,10 +480,21 @@ void moveCima(Tabuleiro* jogo) {
 			if (jogo->table[f][i].valor != 0 && jogo->table[f][i].valor == jogo->table[f+1][i].valor &&
 				jogo->table[f][i].nao_guloso == 0 && jogo->table[f+1][i].nao_guloso == 0) {
 
+				jogo->table[f][i].nao_guloso = 1;
 				jogo->table[f][i].valor *= 2;
 				jogo->pts += jogo->table[f][i].valor;
 
-				jogo->table[f][i].nao_guloso = 1;
+				if (jogo->table[f][i].valor == 256) {
+					printf(BOLD(GREEN("Ficha de Desfazer Jogada obtida!\n")));
+					jogo->numUndo++;
+				}
+				if (jogo->table[f][i].valor == 512) {
+					printf(BOLD(GREEN("Ficha de Trocar peças obtida!\n")));
+					jogo->numTroca++;
+					delay_ms(800);
+				}
+
+
 				jogo->table[f+1][i].valor = 0;
 			}
 		}
@@ -486,10 +540,25 @@ void moveBaixo(Tabuleiro* jogo) {
 			if (jogo->table[f][i].valor != 0 && jogo->table[f][i].valor == jogo->table[f-1][i].valor &&
 				jogo->table[f][i].nao_guloso == 0 && jogo->table[f-1][i].nao_guloso == 0) {
 
+
 				jogo->table[f][i].valor *= 2;
+				jogo->table[f][i].nao_guloso = 1;
 				jogo->pts += jogo->table[f][i].valor;
 
-				jogo->table[f][i].nao_guloso = 1;
+
+				if (jogo->table[f][i].valor == 256) {
+					printf(BOLD(GREEN("Ficha de Desfazer Jogada obtida!\n")));
+					jogo->numUndo++;
+				}
+				if (jogo->table[f][i].valor == 512) {
+					printf(BOLD(GREEN("Ficha de Trocar Peças obtida!\n")));
+					jogo->numTroca++;
+					delay_ms(800);
+				}
+
+
+
+				
 				jogo->table[f-1][i].valor = 0;
 			}
 		}
@@ -514,11 +583,16 @@ void fazBackup(Tabuleiro* jogo) {
 		for (int j = 0; j < jogo->tam; j++)
 			jogo->table_bkp[i][j] = jogo->table[i][j];
 	jogo->pts_bkp = jogo->pts;
+	jogo->numUndo_bkp = jogo->numUndo;
+	jogo->numTroca_bkp = jogo->numTroca;
+
 }
 void desfazMovimento(Tabuleiro* jogo) {
 	Célula **temp = NULL;
 	temp = criaMatriz(jogo->tam);
-	long int temp_pts = jogo->pts;
+	int temp_pts = jogo->pts;
+	int undotemp = jogo->numUndo;
+	int trocatemp = jogo->numTroca_bkp;
 	if (temp == NULL) {
 		printf(BOLD(RED("ERRO DE FUNCIONAMENTO DO JOGO. TENTE NOVAMENTE")) "\n");
 		return;
@@ -527,6 +601,9 @@ void desfazMovimento(Tabuleiro* jogo) {
 		for (int j = 0; j < jogo->tam; j++)
 			temp[i][j] = jogo->table[i][j];
 
+	jogo->pts = jogo->pts_bkp;
+	jogo->numUndo = jogo->numUndo_bkp;
+	jogo->numTroca = jogo->numTroca_bkp; 
 	for (int i = 0; i < jogo->tam; i++)
 		for (int j = 0; j < jogo->tam; j++)
 			jogo->table[i][j] = jogo->table_bkp[i][j];
@@ -535,16 +612,59 @@ void desfazMovimento(Tabuleiro* jogo) {
 		for (int j = 0; j < jogo->tam; j++)
 			jogo->table_bkp[i][j] = temp[i][j];
 
-	jogo->pts = jogo->pts_bkp;
+	
 	jogo->pts_bkp = temp_pts;
+	jogo->numTroca_bkp = trocatemp;
+	jogo->numUndo_bkp = undotemp;
 	liberaMatriz(temp, jogo->tam);	
 }
 void imprimeTabela(Tabuleiro* jogo) {
-	for (int i = 0; i < jogo->tam; i++) {
-		for (int j = 0; j < jogo->tam; j++)
-			printf("%6d ", jogo->table[i][j].valor);
-	printf("\n");
-	}
+    const int largura = 6;
+
+    // borda superior
+    printf(TAB_TL);
+    for (int j = 0; j < jogo->tam; j++) {
+        for (int k = 0; k < largura; k++) 
+        	printf(TAB_HOR); 
+        if (j < jogo->tam - 1) 
+        	 printf(TAB_TJ); 
+    }
+    printf(TAB_TR);
+    printf("\n");
+
+    // nros
+    for (int i = 0; i < jogo->tam; i++) {
+        printf(TAB_VER);
+        for (int j = 0; j < jogo->tam; j++) {
+            if (jogo->table[i][j].valor == 0) 
+                 printf("%*s", largura, " ");
+
+            else 
+                 printf("%*d", largura, jogo->table[i][j].valor);
+            printf(TAB_VER);
+        }
+        printf("\n");
+
+        // horizontal
+        if (i < jogo->tam - 1) {
+            printf(TAB_ML);
+            for (int j = 0; j < jogo->tam; j++) {
+                for (int k = 0; k < largura; k++) { printf(TAB_HOR); }
+                if (j < jogo->tam - 1) { printf(TAB_MJ); }
+            }
+            printf(TAB_MR);
+            printf("\n");
+        }
+    }
+
+    // fundo
+    printf(TAB_BL);
+    for (int j = 0; j < jogo->tam; j++) {
+        for (int k = 0; k < largura; k++) { printf(TAB_HOR); }
+        if (j < jogo->tam - 1) { printf(TAB_BJ); }
+    }
+    printf(TAB_BR);
+    printf("\n");
 }
 int mudanca(Tabuleiro* jogo) {
 	for (int i = 0; i < jogo->tam; i++)
@@ -581,7 +701,7 @@ int verificaDerrota(Tabuleiro* jogo) {
 int trataVitória(Tabuleiro* jogo) {
     jogo->verificado = 1;
 
-    printf(BOLD(GREEN("Parabéns! Você Venceu!\n")));
+    printf(BOLD(GREEN("\t\t\t\t\tParabéns! Você Venceu!\n")));
     if (perguntaSN("Deseja continuar jogando?\n-> ")) {
         printf(BOLD(GREEN("Continuando o jogo...\n")));
         return 1;
@@ -615,4 +735,106 @@ int trataDerrota(Tabuleiro* jogo) {
         lerEntrada(opt, 10);
         return 0;
     }
+}
+void scoreRodada(Tabuleiro* jogo) {
+	for (int i = 0; i < 30; i++)
+		printf("=");
+	printf("\n");
+	printf("Jogador: %s\n\n", jogo->nick);
+	printf("Pontuação: %d\n", jogo->pts);
+	printf("Desfazer: %d\n", jogo->numUndo);
+	printf("Trocas: %d\n", jogo->numTroca);
+	for (int i = 0; i < 30; i++)
+		printf("=");
+	printf("\n");
+}
+int carregaJogo(Tabuleiro* jogo) {
+	char filename[50];
+	clear();
+	printf("Digite o nome do arquivo de save a ser carregado: ");
+	fgets(filename, 50, stdin);
+	filename[strcspn(filename, "\n")] = '\0';
+	FILE *save = NULL;
+	save = fopen(filename, "r");
+	if (save == NULL) 
+		return 0;
+
+	if (jogo->table != NULL) {
+		liberaMatriz(jogo->table, jogo->tam);
+		liberaMatriz(jogo->table_bkp, jogo->tam);
+	}
+
+	fscanf(save, "%d", &jogo->tam);
+	jogo->table = criaMatriz(jogo->tam);
+	jogo->table_bkp = criaMatriz(jogo->tam); //colocar verificacao
+
+	if (jogo->table == NULL || jogo->table_bkp == NULL) {
+		printf(BOLD(RED("ERRO: FALHA AO CARREGAR O JOGO. Tente novamente\n")));
+		fclose(save);
+		return 0;
+	}
+
+	fscanf(save, "%d", &jogo->numUndo);
+	fscanf(save, "%d", &jogo->numTroca);
+
+	fscanf(save, "%d", &jogo->pts);
+	fgetc(save);
+	fgets(jogo->nick, 50, save);
+	jogo->nick[strcspn(jogo->nick, "\n")] = '\0';
+	
+	for (int i = 0; i < jogo->tam; i++)
+		for (int j = 0; j < jogo->tam; j++) 
+			fscanf(save, "%d", &jogo->table[i][j].valor);
+
+	for (int i = 0; i < jogo->tam; i++)
+		for (int j = 0; j < jogo->tam; j++) 
+			fscanf(save, "%d", &jogo->table_bkp[i][j].valor);
+
+	printf(BOLD(GREEN("Arquivo \"%s\" carregado com sucesso!\n")), filename);
+	fclose(save);
+	return 1;
+}
+int salvaJogo(Tabuleiro* jogo) {
+	char filename[50];
+	FILE *toSave = NULL;
+
+	printf("Digite o nome do arquivo para salvamento: ");
+	fgets(filename, 50, stdin);
+
+	filename[strcspn(filename, "\n")] = '\0';
+	toSave = fopen(filename, "w");
+	if (toSave == NULL)
+		return 0;
+
+	
+	fprintf(toSave, "%d ", jogo->tam);
+	fprintf(toSave, "%d ", jogo->numUndo);
+	fprintf(toSave, "%d\n", jogo->numTroca);
+
+	fprintf(toSave, "%d ", jogo->pts);
+	fprintf(toSave, "%s\n", jogo->nick);
+
+	for (int i = 0; i < jogo->tam; i++) {
+		for (int j = 0; j < jogo->tam; j++) 
+			if (j < jogo->tam-1)
+				fprintf(toSave, "%d ", jogo->table[i][j].valor);
+			else
+				fprintf(toSave, "%d", jogo->table[i][j].valor);
+		fprintf(toSave, "\n");
+	}
+
+
+	for (int i = 0; i < jogo->tam; i++) {
+		for (int j = 0; j < jogo->tam; j++)
+			if (j < jogo->tam)
+				fprintf(toSave, "%d ", jogo->table_bkp[i][j].valor);
+			else
+				fprintf(toSave, "%d", jogo->table_bkp[i][j].valor);
+		fprintf(toSave, "\n");
+	}
+
+	jogo->unsaved = 0;
+	printf("Jogo salvo com sucesso no arquivo \"%s\"!\n", filename);
+	fclose(toSave);
+	return 1;
 }

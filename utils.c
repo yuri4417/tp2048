@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "cores.h"
+#include "game.h"
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,21 +20,19 @@ int lerEntrada(char* str, int tam) {
         limpar_buffer();
     
     str[strcspn(str, "\n")] = '\0'; // Remove \n
+    for (int i = 0; str[i] != '\0'; i++)
+            str[i] = converteMinuscula(str[i]);
     return 1;
 }
+
 void limpar_buffer() {
 	int ch;
 	while ((ch = getchar()) != '\n' && ch != EOF);
 }
 void delay_ms(int ms) {
-#ifdef _WIN32
-	Sleep(ms);
-#else 
-	struct timespec ts;
-	ts.tv_sec = ms / 1000;                 
-    ts.tv_nsec = (ms % 1000) * 1000000L;    
-    nanosleep(&ts, NULL);
-#endif
+    clock_t start_time = clock();
+    clock_t end_time = start_time + (ms * CLOCKS_PER_SEC / 1000);
+    while (clock() < end_time);
 }
 void clear() {
 #ifdef _WIN32
@@ -41,33 +40,6 @@ void clear() {
 #else
 	system("clear");
 #endif
-}
-void cprintf( char* string) {
-    int largura_terminal = 80;
-#ifdef _WIN32
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
-        largura_terminal = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-    }
-#else
-    struct winsize w;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
-        largura_terminal = w.ws_col;
-    }
-#endif
-
-    int tamanho_texto = stringReal(string);
-    int espacamento = (largura_terminal - tamanho_texto) / 2;
-
-    if (espacamento < 0) {
-        espacamento = 0;
-    }
-
-    for (int i = 0; i < espacamento; i++) {
-        printf(" ");
-    }
-
-    printf("%s", string);
 }
 void zeraGuloso(Tabuleiro* jogo) {
 	for (int i = 0; i < jogo->tam; i++) {
@@ -114,4 +86,13 @@ int perguntaSN(char* str) {
         printf(BOLD(RED("Opção Inválida! Tente novamente (S/N)\n")));
         delay_ms(500);
     }
+}
+void abortar(Tabuleiro* jogo) {
+    if (jogo->table != NULL) {
+        liberaMatriz(jogo->table, jogo->tam);
+        liberaMatriz(jogo->table_bkp, jogo->tam);
+    }
+    printf(BOLD(RED("\nERRO DE ENTRADA. O Jogo será finalizado\n")));
+    delay_ms(1000);
+    exit(-1);
 }

@@ -11,7 +11,7 @@ typedef struct {
 typedef struct {
 	Célula **table;
 	int tam;
-	long int pts;
+	int pts;
 	char nick[50];
 	int verificado;
 
@@ -22,6 +22,8 @@ typedef struct {
 
 
 	Célula **table_bkp;
-	long int pts_bkp;
+	int pts_bkp; 
+	int numUndo_bkp; 
+	int numTroca_bkp;
 } Tabuleiro;
 #endif

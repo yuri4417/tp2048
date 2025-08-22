@@ -8,13 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <ctype.h>
-#ifdef _WIN32
-	#include <windows.h>
-#else 
-	#include <sys/ioctl.h>
-	#include <unistd.h>
-#endif
 
 // ============================
 //	MAIN
@@ -23,7 +16,7 @@ int main () {
 	Tabuleiro jogo;
 	jogo.table = NULL;
 	jogo.table_bkp = NULL;
-	jogo.unsaved = 1;
+	jogo.unsaved = 0;
 
 	srand(time(NULL));
 
@@ -31,6 +24,7 @@ int main () {
 	mostraMenu(&jogo);
 
 	if(jogo.table != NULL) {
+		printf("Limpando matrizes\n");
 		liberaMatriz(jogo.table, jogo.tam);
 		liberaMatriz(jogo.table_bkp, jogo.tam);
 	}
