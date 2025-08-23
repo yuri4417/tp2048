@@ -55,8 +55,9 @@ void mostraMenu(Tabuleiro* jogo) {
 			}
 					break;
 			case 'j':
-					if (jogo->table != NULL)
+					if (jogo->table != NULL) {
 						gameLoop(jogo);
+					}
 					else {
 						printf(BOLD(RED("ERRO: Nenhum jogo em andamento.")" Carregue um arquivo de jogo ou inicie uma nova partida\n"));
 						delay_ms(850);
@@ -68,11 +69,12 @@ void mostraMenu(Tabuleiro* jogo) {
 						delay_ms(500);
 						gameLoop(jogo);
 					}
-
-					else 
+					else {
 						printf("Erro ao carregar jogo, tente novamente ou inicie uma nova partida\n");
+						delay_ms(500);
+					}
 
-					delay_ms(2500);
+
 					break;
 			case 's':
 					if(salvaJogo(jogo))
@@ -301,7 +303,7 @@ void gameLoop(Tabuleiro* jogo) {
 		scoreRodada(jogo);
 		printf("\nComando: Movimento (W, A, S ou D), Desfazer Movimento (U), Trocar peças (T) ou retornar ao menu (voltar):\n-> ");
 		if (!lerEntrada(resp, 50)) 
-			break;
+			abortar(jogo);
 
 		if (strcmp(resp, "voltar") == 0) 
 			break;
@@ -787,7 +789,7 @@ int carregaJogo(Tabuleiro* jogo) {
 	char filename[50];
 	clear();
 	printf("Digite o nome do arquivo de save a ser carregado: ");
-	fgets(filename, 50, stdin);	
+	fgets(filename, 50, stdin);
 
 	int len = strcspn(filename, "\n"); 
 	if (len < 50)
