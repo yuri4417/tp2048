@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "cores.h"
 #include "game.h"
+
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,16 +12,22 @@
     #include <sys/ioctl.h>
     #include <unistd.h>
 #endif
+
+
 // Utilitários
 int lerEntrada(char* str, int tam) {
-    if (fgets(str, tam, stdin) == NULL) // Ctrl D
+    if (fgets(str, tam, stdin) == NULL) 
         return 0;
     
-    if (strchr(str, '\n') == NULL) // Limpa se digitar mais que a string
-        limpar_buffer();
+    int len = strcspn(str, "\n");
+    if (len < tam-1)
+        str[len] = '\0';
+    else {
+        str[tam-1] = '\0';
+        limpar_buffer(); // Limpa se digitar mais que a string
+    }
     
-    str[strcspn(str, "\n")] = '\0'; // Remove \n
-    for (int i = 0; str[i] != '\0'; i++)
+    for (int i = 0; str[i] < tam; i++)
             str[i] = converteMinuscula(str[i]);
     return 1;
 }
@@ -35,11 +42,7 @@ void delay_ms(int ms) {
     while (clock() < end_time);
 }
 void clear() {
-#ifdef _WIN32
-	system("cls");
-#else
-	system("clear");
-#endif
+    printf("\033[2J\033[H");
 }
 void zeraGuloso(Tabuleiro* jogo) {
 	for (int i = 0; i < jogo->tam; i++) {
@@ -92,7 +95,18 @@ void abortar(Tabuleiro* jogo) {
         liberaMatriz(jogo->table, jogo->tam);
         liberaMatriz(jogo->table_bkp, jogo->tam);
     }
-    printf(BOLD(RED("\nERRO DE ENTRADA. O Jogo será finalizado\n")));
+    printf(BOLD(RED("\nERRO DE ENTRADA. O Jogo será finalizado. \n")));
     delay_ms(1000);
     exit(-1);
+}
+void catTxt(char *str, int tam) {
+    char *ultimoPonto = strrchr(str, '.');
+    if (ultimoPonto == NULL || strcmp(ultimoPonto+1, "txt") != 0) {
+        if (strlen(str) + 4 < tam) {
+            if (ultimoPonto == NULL) 
+                strcat(str, ".txt");
+            else 
+                strcpy(ultimoPonto, ".txt");
+        }
+    }
 }

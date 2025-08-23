@@ -9,6 +9,7 @@ void novoJogo(Tabuleiro* jogo);
 void geradorRand(Tabuleiro* jogo);
 void processaComando(Tabuleiro* jogo, char* opt);
 void gameLoop(Tabuleiro* jogo);
+void mostraAjuda(Tabuleiro* jogo);
 
 // Matrizes
 Célula **criaMatriz(int n); 

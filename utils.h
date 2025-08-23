@@ -13,6 +13,7 @@ char converteMinuscula(char letra);
 int stringReal(char* str);
 int perguntaSN(char* str);
 void abortar(Tabuleiro* jogo);
-
+void catTxt(char *str, int tam);
+int carregaTutorial(Tabuleiro* jogo);
 
 #endif
