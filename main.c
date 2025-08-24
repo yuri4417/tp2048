@@ -14,6 +14,7 @@
 // ============================
 int main () {
 	Tabuleiro jogo;
+	Tops rankings;
 	jogo.table = NULL;
 	jogo.table_bkp = NULL;
 	jogo.unsaved = 0;
@@ -21,7 +22,7 @@ int main () {
 	srand(time(NULL));
 
 	clear();
-	mostraMenu(&jogo);
+	mostraMenu(&jogo, &rankings);
 
 	if(jogo.table != NULL) {
 		printf("Limpando matrizes\n");

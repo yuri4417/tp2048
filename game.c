@@ -9,7 +9,7 @@
 #include <ctype.h>
 
 
-void mostraMenu(Tabuleiro* jogo) {
+void mostraMenu(Tabuleiro* jogo, Tops* ranking) {
 	char opt = '\0';
 	char frase[10];
 	do {
@@ -28,6 +28,7 @@ void mostraMenu(Tabuleiro* jogo) {
 		printf("-> "); 
 		if (!lerEntrada(frase, 10))
 			abortar(jogo);
+		apagaEspaço(frase);
 
 		if (strlen(frase) == 1)
 			opt = converteMinuscula(frase[0]);
@@ -50,13 +51,13 @@ void mostraMenu(Tabuleiro* jogo) {
 				if (start) {
 					printf(BOLD(GREEN("Iniciando novo jogo... Divirta-se!")) "\n");
 					delay_ms(850);
-					novoJogo(jogo);
+					novoJogo(jogo, ranking);
 				}	
 			}
 					break;
 			case 'j':
 					if (jogo->table != NULL) {
-						gameLoop(jogo);
+						gameLoop(jogo, ranking);
 					}
 					else {
 						printf(BOLD(RED("ERRO: Nenhum jogo em andamento.")" Carregue um arquivo de jogo ou inicie uma nova partida\n"));
@@ -67,7 +68,7 @@ void mostraMenu(Tabuleiro* jogo) {
 					if (carregaJogo(jogo)) {
 						printf("Jogo carregado! Carregando tabela...\n");
 						delay_ms(500);
-						gameLoop(jogo);
+						gameLoop(jogo, ranking);
 					}
 					else {
 						printf("Erro ao carregar jogo, tente novamente ou inicie uma nova partida\n");
@@ -84,8 +85,10 @@ void mostraMenu(Tabuleiro* jogo) {
 					delay_ms(1000);
 					break; 
 			case 'm':
-
-
+					char get[50];
+					atualizaRanking(ranking, jogo);
+					imprimeRanking(ranking);
+					fgets(get, 50, stdin);
 					break;
 			case 'a': 
 					mostraAjuda(jogo);
@@ -109,7 +112,7 @@ void mostraMenu(Tabuleiro* jogo) {
 		} 
 	} while (opt != 'r');
 }
-void novoJogo(Tabuleiro* jogo) {
+void novoJogo(Tabuleiro* jogo, Tops* ranking) {
 	char resp[50];
 	if (jogo->table != NULL) {
 		liberaMatriz(jogo->table, jogo->tam);
@@ -123,11 +126,13 @@ void novoJogo(Tabuleiro* jogo) {
 	printf("Escolha o tamanho do jogo: ");
 	int tam = 0;
 	while (tam == 0) {
-    	if (lerEntrada(resp, 50))
+    	if (lerEntrada(resp, 50)) {
+    		apagaEspaço(resp);
     	    if (strlen(resp) == 1 && resp[0] >= '4' && resp[0] <= '6')
     	        tam = resp[0] - '0';
     	    else
     	        printf(RED("Tamanho inválido! Escolha entre 4, 5, ou 6\n-> "));
+    	}
     	else
     	    abortar(jogo);
 	}
@@ -160,7 +165,7 @@ void novoJogo(Tabuleiro* jogo) {
 		geradorRand(jogo);
 		geradorRand(jogo);
 	}
-	gameLoop(jogo);
+	gameLoop(jogo, ranking);
 }
 void geradorRand(Tabuleiro* jogo) {
 	int toAdd = 1; // qtd de peças para serem geradas
@@ -276,17 +281,21 @@ void processaComando(Tabuleiro* jogo, char* opt) {
 			} 
 			else {
 				printf(BOLD(RED("Comando inválido! Tente novamente\n")));
-				delay_ms(500);
+				delay_ms(550);
 			}
 			break;
 
-		case 't': {
-			
-		}	
+		case 't': 
+				if(arrumaString(opt))
+					trocaPos(jogo, opt);
+				else {
+					printf(BOLD(RED("Comando inválido! Tente novamente.\n")));
+					delay_ms(750);
+				}
 			break;
 		default:
-			printf("Opção inválida! Digite novamente\n");
-			delay_ms(850);
+			printf(BOLD(RED("Comando inválido! Tente novamente.\n")));
+			delay_ms(750);
 	}
 
 
@@ -295,7 +304,7 @@ void processaComando(Tabuleiro* jogo, char* opt) {
 		jogo->unsaved = 1;
 	}
 }
-void gameLoop(Tabuleiro* jogo) {
+void gameLoop(Tabuleiro* jogo, Tops* ranking) {
 	char resp[10];
 	do {
 		clear();
@@ -311,11 +320,11 @@ void gameLoop(Tabuleiro* jogo) {
 		processaComando(jogo, resp);
 
 		if (!jogo->verificado && verificaVitória(jogo)) {
-			if (!trataVitória(jogo))
+			if (!trataVitória(jogo, ranking))
 				break;
 		}
 		else if (verificaDerrota(jogo)) {
-			if (!trataDerrota(jogo))
+			if (!trataDerrota(jogo, ranking))
 				break;
 		}
 	} while (1);
@@ -629,150 +638,7 @@ void desfazMovimento(Tabuleiro* jogo) {
 	jogo->numUndo_bkp = undotemp;
 	liberaMatriz(temp, jogo->tam);	
 }
-void imprimeTabela(Tabuleiro* jogo) {
-    const int digitosMAX = 8;
 
-
-    // borda superior
-    for (int i = 0; i< jogo->tam; i++)
-    	printf("%*d", digitosMAX+1, 1+i);
-    printf("\n");
-    printf("  "TAB_TL);
-    for (int j = 0; j < jogo->tam; j++) {
-        for (int k = 0; k < digitosMAX; k++)  
-        	printf(TAB_HOR); 
-        if (j < jogo->tam - 1) 
-        	 printf(TAB_TJ); 
-    }
-    printf(TAB_TR);
-    printf("\n");
-
-    // nros
-    for (int i = 0; i < jogo->tam; i++) {
-        printf("%c", 'A'+i);
-        printf(" "TAB_VER);
-        for (int j = 0; j < jogo->tam; j++) {
-
-        	switch (jogo->table[i][j].valor) {
-			    case 0:    printf("%*s", digitosMAX, " "); break;
-			    case 2:    printf(BG_WHITE(BLACK("%*d")), digitosMAX, jogo->table[i][j].valor); break;
-			    case 4:    printf(BG_GREEN(BLACK("%*d")), digitosMAX, jogo->table[i][j].valor); break; 
-			    case 8:    printf(BG_CYAN(BLACK("%*d")), digitosMAX, jogo->table[i][j].valor); break; 
-			    case 16:   printf(BG_BLUE(WHITE("%*d")), digitosMAX, jogo->table[i][j].valor); break; 
-			    case 32:   printf(BG_YELLOW(BLACK("%*d")), digitosMAX, jogo->table[i][j].valor); break; 
-			    case 64:   printf(BG_MAGENTA(WHITE("%*d")), digitosMAX, jogo->table[i][j].valor); break;
-
-			    case 128:  printf(BG_WHITE(BOLD(BLUE("%*d"))), digitosMAX, jogo->table[i][j].valor); break;
-			    case 256:  printf(BG_GREEN(BOLD(WHITE("%*d"))), digitosMAX, jogo->table[i][j].valor); break;
-			    case 512:  printf(BG_YELLOW(BOLD(RED("%*d"))), digitosMAX, jogo->table[i][j].valor); break; 
-			    case 1024: printf(BG_BLUE(BOLD(YELLOW("%*d"))), digitosMAX, jogo->table[i][j].valor); break;
-			    case 2048: printf(BG_RED(BOLD(YELLOW("%*d"))), digitosMAX, jogo->table[i][j].valor); break;
-			    default:   printf(BG_MAGENTA(BOLD(BLACK("%*d"))), digitosMAX, jogo->table[i][j].valor); break;
-			}
-
-            printf(TAB_VER);
-        }
-        printf("\n");
-
-        // horizontal
-        printf("  ");
-        if (i < jogo->tam - 1) {
-            printf(TAB_ML);
-            for (int j = 0; j < jogo->tam; j++) {
-                for (int k = 0; k < digitosMAX; k++)
-                	printf(TAB_HOR); 
-                if (j < jogo->tam - 1) 
-                	printf(TAB_MJ); 
-            }
-            printf(TAB_MR);
-            printf("\n");
-        }
-    }
-
-    // fundo
-    printf(TAB_BL);
-    for (int j = 0; j < jogo->tam; j++) {
-        for (int k = 0; k < digitosMAX; k++) { printf(TAB_HOR); }
-        if (j < jogo->tam - 1) { printf(TAB_BJ); }
-    }
-    printf(TAB_BR);
-    printf("\n");
-}
-int mudanca(Tabuleiro* jogo) {
-	for (int i = 0; i < jogo->tam; i++)
-		for (int j = 0; j < jogo->tam; j++)
-			if (jogo->table[i][j].valor != jogo->table_bkp[i][j].valor)
-				return 1; 
-	return 0;
-}
-int verificaVitória(Tabuleiro* jogo) {
-	for (int i = 0; i < jogo->tam; i++)
-		for(int j = 0; j < jogo->tam; j++)
-			if (jogo->table[i][j].valor == 2048)
-				return 1;
-	return 0;
-}
-int verificaDerrota(Tabuleiro* jogo) {
-	for (int i = 0; i < jogo->tam; i++)
-		for (int j = 0; j < jogo->tam; j++)
-			if (jogo->table[i][j].valor == 0)
-				return 0; //Célula com pelo menos 1 valor 0
-	for (int i = 0; i < jogo->tam; i++) {
-		for (int j = 0; j < jogo->tam; j++) {
-			if (i < jogo->tam - 1)
-				if (jogo->table[i][j].valor == jogo->table[i+1][j].valor)
-					return 0; //Célula abaixo igual a atual, movimento possível
-			if (j < jogo->tam - 1)
-				if (jogo->table[i][j].valor == jogo->table[i][j+1].valor)
-					return 0; //Célula a direita igual
-
-		}
-	}
-	return 1;
-}
-int trataVitória(Tabuleiro* jogo) {
-    jogo->verificado = 1;
-    clear();
-    imprimeTabela(jogo);
-    scoreRodada(jogo);
-
-    printf(BOLD(GREEN("\t\t\t\t\tParabéns! Você Venceu!\n")));
-    if (perguntaSN("Deseja continuar jogando?\n-> ")) {
-        printf(BOLD(GREEN("Continuando o jogo...\n")));
-        return 1;
-    } 
-    else {
-        printf(BOLD(YELLOW("Voltando ao menu...\n")));
-        delay_ms(500);
-        return 0;
-    }
-}
-int trataDerrota(Tabuleiro* jogo) {
-    if (jogo->numUndo > 0) {
-            clear();
-            imprimeTabela(jogo);
-            scoreRodada(jogo);
-            printf(BOLD(RED("Você PERDEU!\n")));
-            if (perguntaSN("Você pode desfazer seu último movimento. Gostaria de tentar mais uma vez?\n-> ")) {
-                jogo->numUndo--;
-                desfazMovimento(jogo);
-                return 1;
-            } 
-            else {
-                printf(BOLD(YELLOW("Voltando ao menu...\n")));
-                delay_ms(650);
-                return 0;
-            }
-    } 
-    else {
-        char opt[10];
-        printf(BOLD(RED("Você PERDEU!\n")));
-        printf(BOLD(RED("Sem movimentos de desfazer disponíveis.\n")));
-        printf("Aperte qualquer tecla para retornar ao menu...\n->");
-        lerEntrada(opt, 10);
-        return 0;
-    }
-}
 void scoreRodada(Tabuleiro* jogo) {
 	for (int i = 0; i < 30; i++)
 		printf("=");
@@ -826,12 +692,17 @@ int carregaJogo(Tabuleiro* jogo) {
 	jogo->nick[strcspn(jogo->nick, "\n")] = '\0';
 	
 	for (int i = 0; i < jogo->tam; i++)
-		for (int j = 0; j < jogo->tam; j++) 
+		for (int j = 0; j < jogo->tam; j++) {
 			fscanf(save, "%d", &jogo->table[i][j].valor);
+			if (jogo->table[i][j].valor == 2048)
+				jogo->verificado = 1;
+		}
 
 	for (int i = 0; i < jogo->tam; i++)
 		for (int j = 0; j < jogo->tam; j++) 
 			fscanf(save, "%d", &jogo->table_bkp[i][j].valor);
+
+
 
 	jogo->pts_bkp = jogo->pts; 
 	jogo->numUndo_bkp = jogo->numUndo; 
@@ -893,35 +764,36 @@ int salvaJogo(Tabuleiro* jogo) {
 	fclose(toSave);
 	return 1;
 }
-void mostraAjuda(Tabuleiro* jogo) {
-	clear();
-	char wait[50];
-	printf(BOLD("Bem-vindo ao jogo!\n"));
-	delay_ms(450);
-	printf(BOLD("Para vencer o jogo, deve-se juntar peças com valores iguais até alcançar a peça com valor de " BOLD(YELLOW("2048\n"))));
-	delay_ms(450);
-	printf(BOLD("Para isso, as peças no tabuleiro podem ser deslocadas por 4 movimentos principais:\n"));
-	printf(BOLD(GREEN("(W)")) " Mover para Cima\n");
-	printf(BOLD(GREEN("(A)")) " Mover para Esquerda\n");
-	printf(BOLD(GREEN("(S)")) " Mover para Baixo\n");
-	printf(BOLD(GREEN("(D)")) " Mover para Direita\n");
-	printf(BOLD("Aperte qualquer tecla para continuar..."));
-	if (!lerEntrada(wait, 50))
-		abortar(jogo);
-	printf(BOLD("Peças geradas em uma rodada não podem ser utilizadas novamente para se juntarem a outras, e o valor de uma peça gerada é adicionada a pontuação geral\n"));
-	delay_ms(450);
-	printf(BOLD("* Início do Jogo: ") "Todo novo jogo começa com " BOLD(GREEN("duas")) " peças posicionadas aleatoriamente.\n");
-	delay_ms(450);
-	printf(BOLD("* Novas Peças (a cada jogada válida):\n"));
-	printf(WHITE("  - Tabuleiros 4x4 e 5x5: Adicionam " BOLD(GREEN("uma")) " nova peça (2 ou 4).\n"));
-	printf(WHITE("  - Tabuleiro 6x6: Adicionam " BOLD(YELLOW("duas")) " novas peças (2 ou 4).\n"));
-	printf(BOLD("Aperte qualquer tecla para continuar..."));
-	if (!lerEntrada(wait, 50))
-		abortar(jogo);
-	printf(BOLD("Existem também algumas") MAGENTA("Fichas Especiais") "que podem auxiliar no caminho para a vitória. São elas:\n");
-	delay_ms(450);
-	printf(BOLD(RED("\t------- Ficha de Desfazer Jogada (U) -------\n")));
+int trocaPos(Tabuleiro* jogo, char* str) {
+	// str: tc1x1c2x2 \0
 
+	int lin1 = str[1] - 'a';
+	int col1 = str[2] - '0' - 1;
+	int lin2 = str[3] - 'a';
+	int col2 = str[4] - '0' - 1;
 
+	if (lin1 > jogo->tam-1 || lin2 > jogo->tam-1 || col1 > jogo->tam-1 || col2 > jogo->tam-1) {
+		printf(BOLD(RED("Tamanho de tabuleiro inválido! Tente novamente\n")));
+		delay_ms(750);
+		return 0;
+	}
+	if (jogo->table[lin1][col1].valor == 0 || jogo->table[lin2][col2].valor == 0) {
+		printf(BOLD(YELLOW("Células zeradas NÃO podem ser trocadas!\n")));
+		delay_ms(750);
+		return 0;
+	}
 
+	if (jogo->numTroca > 0) {
+		jogo->numTroca--;
+		int temp = jogo->table[lin1][col1].valor;
+		jogo->table[lin1][col1].valor = jogo->table[lin2][col2].valor;
+		jogo->table[lin2][col2].valor = temp;
+		return 1;
+	}
+	else {
+		printf(BOLD(YELLOW("SEM FICHAS DE TROCA DISPONÍVEIS. Obtenha mais formando peças de 512\n")));
+		delay_ms(750);
+		return 0;
+	}
 }
+
