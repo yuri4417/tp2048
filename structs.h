@@ -11,9 +11,9 @@ typedef struct {
 
 typedef struct {
 	Célula **table;
-	int tam;
+	int tam; //tamanho da matriz
 	int pts;
-	char nick[50];
+	char nick[27];
 	int verificado; // Se for igual a 1 -> jogo já ganho
 
 
@@ -29,16 +29,15 @@ typedef struct {
 } Tabuleiro;
 
 typedef struct {
-	char nick[50];
+	char nick[27];
 	int pts;
 } Ranking;
 typedef	struct {
-	Ranking top10_4[10];
-	Ranking top10_5[10];
-	Ranking top10_6[10];
-
 	int tam4;
 	int tam5;
 	int tam6;
+	Ranking top10_4[10];
+	Ranking top10_5[10];
+	Ranking top10_6[10];
 } Tops;
 #endif

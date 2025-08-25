@@ -6,12 +6,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
-// ============================
-//	MAIN
-// ============================
 int main () {
 	Tabuleiro jogo;
 	Tops rankings;
@@ -25,25 +21,8 @@ int main () {
 	mostraMenu(&jogo, &rankings);
 
 	if(jogo.table != NULL) {
-		printf("Limpando matrizes\n");
 		liberaMatriz(jogo.table, jogo.tam);
 		liberaMatriz(jogo.table_bkp, jogo.tam);
 	}
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
